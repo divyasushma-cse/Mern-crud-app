@@ -1,4 +1,4 @@
-React + Neon CRUD Blog
+## React + Neon CRUD Blog
 
 A React/Vite blog frontend with an Express API and Neon serverless PostgreSQL database. Posts have a title and content. Location is an optional browser-only feature and is never sent to or stored by the API.
 
