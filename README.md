@@ -1,4 +1,4 @@
-# VVIT Experiment 25 — MERN CRUD Blog
+MERN CRUD Blog
 
 A full-stack blog application with a React/Vite frontend and an Express, MongoDB, and Mongoose API. Posts have a title and content; location is an optional browser-only feature and is never sent to or stored by the API.
 
