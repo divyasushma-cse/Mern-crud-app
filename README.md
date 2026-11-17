@@ -1,38 +1,39 @@
-MERN CRUD Blog
+# VVIT Experiment 25 - React + Neon CRUD Blog
 
-A full-stack blog application with a React/Vite frontend and an Express, MongoDB, and Mongoose API. Posts have a title and content; location is an optional browser-only feature and is never sent to or stored by the API.
+A React/Vite blog frontend with an Express API and Neon serverless PostgreSQL database. Posts have a title and content. Location is an optional browser-only feature and is never sent to or stored by the API.
 
 ## Requirements
 
 - Node.js 18 or newer and npm
-- A MongoDB database (MongoDB Atlas or a local MongoDB server)
+- A Neon PostgreSQL project (no local database is required)
 
 ## Configure and run
 
-1. Configure the backend environment. The existing `backend/.env` is local-only and must not be shared or committed. For a fresh setup, copy the example and replace its placeholders:
+1. Create a Neon project and copy its connection string from the Neon dashboard.
+2. Configure the backend environment. Keep `backend/.env` private and never commit it:
 
    ```powershell
    Copy-Item backend\.env.example backend\.env
    ```
 
-   Set `MONGO_URI` to your MongoDB connection string, `DB_NAME` to your database name, and optionally `PORT` (defaults to `3000`). Keep database credentials private. For Atlas, allow network access from your development machine and URL-encode special characters in the database username or password.
+   Set `DATABASE_URL` in `backend/.env` to the Neon connection string, including `sslmode=require`. The connection string is a secret; do not put it in frontend variables or source control.
 
-2. Install backend packages and start the API:
+3. Install backend packages and start the API:
 
    ```powershell
    cd backend
-   npm install
+   npm ci
    npm run dev
    ```
 
-   The health route is `http://localhost:3000/`.
+   The health route is `http://localhost:3000/`. The API creates the `posts` table on startup if it does not exist.
 
-3. In a second terminal, configure and start the frontend:
+4. In a second terminal, configure and start the frontend:
 
    ```powershell
    cd frontend
    Copy-Item .env.example .env
-   npm install
+   npm ci
    npm run dev
    ```
 
@@ -49,26 +50,24 @@ A full-stack blog application with a React/Vite frontend and an Express, MongoDB
 | PUT | `/api/v1/posts/:id` | Update a post (`title`, `content`) |
 | DELETE | `/api/v1/posts/:id` | Delete a post |
 
-The API validates required text fields and MongoDB IDs, uses appropriate success and error status codes, and returns JSON error messages. The browser requests location only after **Allow Location** is clicked; denying it does not affect the blog.
+Post IDs are UUIDs. The API validates required text fields and IDs, uses appropriate success and error status codes, and returns JSON error messages. The browser requests location only after **Allow Location** is clicked; denying it does not affect the blog.
 
-## Production build
+## Deploy the backend to Render
+
+- Create a Node Web Service for this repository on branch `main`.
+- Set **Root Directory** to `backend`, **Build Command** to `npm ci`, and **Start Command** to `npm start`.
+- Add `DATABASE_URL` in Render's environment settings using the Neon connection string. Never add it as a `VITE_` variable or commit it.
+- Render supplies `PORT` automatically. After deployment, verify the service URL at `/`.
+
+The CRUD API currently has no authentication. Do not use it for sensitive or private data without adding authentication and authorization.
+
+## Frontend production build
 
 ```powershell
 cd frontend
 npm run build
 ```
 
-The production files are written to `frontend/dist/`. Configure `VITE_API_URL` to the deployed API URL before building for another environment.
+The production files are written to `frontend/dist/`. Configure `VITE_API_URL` to the deployed API base URL before building the frontend for production.
 
-## One-repository Git setup
-
-Run these commands from the `mern-crud-app` project root. They prepare one local repository; review the staged files before committing. Do not push or publish without approval.
-
-```powershell
-git init
-git add .gitignore README.md backend frontend
-git status
-git commit -m "MERN CRUD blog"
-```
-
-The root and app-level ignore files exclude `.env`, `node_modules`, and build output.
+The repository ignores `.env` files, `node_modules`, and build output. Commit only `.env.example` templates, never private connection strings.
