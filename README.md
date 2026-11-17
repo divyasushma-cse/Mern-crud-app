@@ -68,7 +68,7 @@ Run these commands from the `mern-crud-app` project root. They prepare one local
 git init
 git add .gitignore README.md backend frontend
 git status
-git commit -m "Build VVIT Experiment 25 MERN CRUD blog"
+git commit -m "MERN CRUD blog"
 ```
 
 The root and app-level ignore files exclude `.env`, `node_modules`, and build output.
