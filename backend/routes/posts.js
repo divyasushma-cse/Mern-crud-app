@@ -1,8 +1,4 @@
 import { Router } from "express";
-import mongoose from "mongoose";
-import Post from "../models/Post.js";
-
-const router = Router();
 
 function asyncHandler(handler) {
   return (req, res, next) => {
@@ -25,84 +21,140 @@ function validatePostInput(body) {
 }
 
 function validateId(req, res, next) {
-  if (!mongoose.isObjectIdOrHexString(req.params.id)) {
-    return res.status(400).json({ message: "Post ID must be a valid MongoDB ObjectId." });
+  const isUuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(req.params.id);
+  if (!isUuid) {
+    return res.status(400).json({ message: "Post ID must be a valid UUID." });
   }
 
   return next();
 }
 
-router.post(
-  "/",
-  asyncHandler(async (req, res) => {
-    const validationMessage = validatePostInput(req.body);
-    if (validationMessage) {
-      return res.status(400).json({ message: validationMessage });
+async function runDatabaseQuery(query) {
+  try {
+    return await query();
+  } catch (error) {
+    const isPostgresError =
+      typeof error?.code === "string" && /^[0-9A-Z]{5}$/.test(error.code);
+    const databaseError = new Error(
+      isPostgresError ? "A database query failed." : "The database is currently unavailable.",
+    );
+    databaseError.statusCode = isPostgresError ? 500 : 503;
+
+    if (isPostgresError) {
+      console.error("Neon query failed with SQLSTATE:", error.code);
+    } else {
+      console.error("Neon database request failed.");
     }
 
-    const post = await Post.create({
-      title: req.body.title.trim(),
-      content: req.body.content.trim(),
-    });
+    throw databaseError;
+  }
+}
 
-    return res.status(201).json(post);
-  }),
-);
+export function createPostsRouter(sql) {
+  const router = Router();
 
-router.get(
-  "/",
-  asyncHandler(async (_req, res) => {
-    const posts = await Post.find().sort({ createdAt: -1 });
-    return res.status(200).json(posts);
-  }),
-);
+  router.post(
+    "/",
+    asyncHandler(async (req, res) => {
+      const validationMessage = validatePostInput(req.body);
+      if (validationMessage) {
+        return res.status(400).json({ message: validationMessage });
+      }
 
-router.get(
-  "/:id",
-  validateId,
-  asyncHandler(async (req, res) => {
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ message: "Post not found." });
-    }
+      const [post] = await runDatabaseQuery(
+        () => sql`
+          INSERT INTO posts (title, content)
+          VALUES (${req.body.title.trim()}, ${req.body.content.trim()})
+          RETURNING id AS "_id", title, content, created_at AS "createdAt", updated_at AS "updatedAt"
+        `,
+      );
 
-    return res.status(200).json(post);
-  }),
-);
+      return res.status(201).json(post);
+    }),
+  );
 
-router.put(
-  "/:id",
-  validateId,
-  asyncHandler(async (req, res) => {
-    const validationMessage = validatePostInput(req.body);
-    if (validationMessage) {
-      return res.status(400).json({ message: validationMessage });
-    }
+  router.get(
+    "/",
+    asyncHandler(async (_req, res) => {
+      const posts = await runDatabaseQuery(
+        () => sql`
+          SELECT id AS "_id", title, content, created_at AS "createdAt", updated_at AS "updatedAt"
+          FROM posts
+          ORDER BY created_at DESC
+        `,
+      );
 
-    const post = await Post.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ message: "Post not found." });
-    }
+      return res.status(200).json(posts);
+    }),
+  );
 
-    post.title = req.body.title.trim();
-    post.content = req.body.content.trim();
-    await post.save();
+  router.get(
+    "/:id",
+    validateId,
+    asyncHandler(async (req, res) => {
+      const [post] = await runDatabaseQuery(
+        () => sql`
+          SELECT id AS "_id", title, content, created_at AS "createdAt", updated_at AS "updatedAt"
+          FROM posts
+          WHERE id = ${req.params.id}::uuid
+        `,
+      );
 
-    return res.status(200).json(post);
-  }),
-);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found." });
+      }
 
-router.delete(
-  "/:id",
-  validateId,
-  asyncHandler(async (req, res) => {
-    const post = await Post.findByIdAndDelete(req.params.id);
-    if (!post) {
-      return res.status(404).json({ message: "Post not found." });
-    }
+      return res.status(200).json(post);
+    }),
+  );
 
-    return res.status(200).json({ message: "Post deleted successfully." });
-  }),
-);
+  router.put(
+    "/:id",
+    validateId,
+    asyncHandler(async (req, res) => {
+      const validationMessage = validatePostInput(req.body);
+      if (validationMessage) {
+        return res.status(400).json({ message: validationMessage });
+      }
 
-export default router;
+      const [post] = await runDatabaseQuery(
+        () => sql`
+          UPDATE posts
+          SET title = ${req.body.title.trim()},
+              content = ${req.body.content.trim()},
+              updated_at = now()
+          WHERE id = ${req.params.id}::uuid
+          RETURNING id AS "_id", title, content, created_at AS "createdAt", updated_at AS "updatedAt"
+        `,
+      );
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found." });
+      }
+
+      return res.status(200).json(post);
+    }),
+  );
+
+  router.delete(
+    "/:id",
+    validateId,
+    asyncHandler(async (req, res) => {
+      const [post] = await runDatabaseQuery(
+        () => sql`
+          DELETE FROM posts
+          WHERE id = ${req.params.id}::uuid
+          RETURNING id
+        `,
+      );
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found." });
+      }
+
+      return res.status(200).json({ message: "Post deleted successfully." });
+    }),
+  );
+
+  return router;
+}
