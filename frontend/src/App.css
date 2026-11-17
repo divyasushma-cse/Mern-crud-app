@@ -336,6 +336,12 @@ h3 {
   color: #3b785f;
 }
 
+.success-message {
+  margin: -10px 0 20px;
+  color: #3b785f;
+  font-size: 13px;
+}
+
 .alert {
   margin: 0 0 18px;
   padding: 12px 15px;
