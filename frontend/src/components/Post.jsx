@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-export default function Post({ post, onDelete }) {
+export default function Post({ post, onDelete, deleting, deleteDisabled }) {
   return (
     <article className="post-card">
       <div className="post-card-top">
@@ -21,8 +21,13 @@ export default function Post({ post, onDelete }) {
         <Link className="button button-light" to={`/update-post/${post._id}`}>
           Edit
         </Link>
-        <button className="button button-danger" onClick={() => onDelete(post._id)} type="button">
-          Delete
+        <button
+          className="button button-danger"
+          onClick={() => onDelete(post._id)}
+          type="button"
+          disabled={deleteDisabled}
+        >
+          {deleting ? "Deleting…" : "Delete"}
         </button>
       </div>
     </article>

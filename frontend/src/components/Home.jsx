@@ -1,15 +1,26 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Post from "./Post.jsx";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1").replace(/\/+$/, "");
 
 export default function Home() {
+  const routeLocation = useLocation();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
   const [location, setLocation] = useState(null);
   const [locationMessage, setLocationMessage] = useState("");
+
+  useEffect(() => {
+    if (routeLocation.state?.successMessage) {
+      setSuccess(routeLocation.state.successMessage);
+      navigate(routeLocation.pathname, { replace: true, state: null });
+    }
+  }, [routeLocation.pathname, routeLocation.state, navigate]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -39,10 +50,13 @@ export default function Home() {
   }, []);
 
   async function deletePost(id) {
-    if (!window.confirm("Delete this post? This cannot be undone.")) {
+    if (deletingId || !window.confirm("Delete this post? This cannot be undone.")) {
       return;
     }
 
+    setDeletingId(id);
+    setError("");
+    setSuccess("");
     try {
       const response = await fetch(`${API_URL}/posts/${id}`, { method: "DELETE" });
       const data = await response.json();
@@ -50,9 +64,11 @@ export default function Home() {
         throw new Error(data.message || "Could not delete the post.");
       }
       setPosts((currentPosts) => currentPosts.filter((post) => post._id !== id));
-      setError("");
+      setSuccess("Post deleted successfully.");
     } catch (requestError) {
       setError(requestError.message || "Could not delete the post.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -125,6 +141,11 @@ export default function Home() {
             {locationMessage}
           </p>
         )}
+        {success && (
+          <p className="success-message" role="status">
+            {success}
+          </p>
+        )}
         {error && (
           <p className="alert" role="alert">
             {error}
@@ -137,7 +158,13 @@ export default function Home() {
         ) : posts.length ? (
           <div className="post-grid">
             {posts.map((post) => (
-              <Post key={post._id} post={post} onDelete={deletePost} />
+              <Post
+                key={post._id}
+                post={post}
+                onDelete={deletePost}
+                deleting={deletingId === post._id}
+                deleteDisabled={Boolean(deletingId)}
+              />
             ))}
           </div>
         ) : (

@@ -21,6 +21,8 @@ export default function AddEditForm() {
     const controller = new AbortController();
 
     async function loadPost() {
+      setLoading(true);
+      setError("");
       try {
         const response = await fetch(`${API_URL}/posts/${id}`, {
           signal: controller.signal,
@@ -49,6 +51,10 @@ export default function AddEditForm() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    if (!title.trim() || !content.trim()) {
+      setError("Enter both a title and content for your post.");
+      return;
+    }
     setSaving(true);
 
     try {
@@ -61,7 +67,9 @@ export default function AddEditForm() {
       if (!response.ok) {
         throw new Error(data.message || "Could not save your post.");
       }
-      navigate("/");
+      navigate("/", {
+        state: { successMessage: id ? "Post updated successfully." : "Post created successfully." },
+      });
     } catch (requestError) {
       setError(requestError.message || "Could not save your post.");
     } finally {
